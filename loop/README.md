@@ -5,12 +5,13 @@ Presentación animada que se repite sola (unos 2 minutos por vuelta), pensada pa
 
 Los dos códigos QR (simulador y landing) quedan **siempre visibles** en la columna derecha, en todas las escenas.
 
-Funciona **sin internet**: las fuentes, las fotos y los códigos QR están en la carpeta `assets/`.
+Es **un solo archivo** (`index.html`) y funciona **sin internet**: las fuentes, las fotos y los QR están adentro del archivo.
 
 ## Cómo usarla en la notebook
 
-1. Descargá el repositorio: en GitHub, botón verde **Code → Download ZIP**, y descomprimilo.
-2. Abrí `loop/index.html` con **Google Chrome** (doble clic o arrastrándolo a la ventana).
+1. Descargá `index.html`: abrilo en GitHub ([loop/index.html](index.html)) y tocá el botón **Download raw file** (ícono de descarga, arriba a la derecha del archivo).
+   También podés bajar todo con **Code → Download ZIP**, pero en ese caso **descomprimilo** antes de abrirlo.
+2. Abrí `index.html` con **Google Chrome** (doble clic o arrastrándolo a la ventana).
 3. Apretá **F** (o doble clic) para pantalla completa. El mouse se oculta solo.
 4. Antes de la muestra:
    - Desactivá la suspensión y el apagado de pantalla de la notebook (en Windows: *Configuración → Sistema → Inicio/apagado y suspensión → Nunca*).

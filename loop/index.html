@@ -295,8 +295,6 @@ h1,h2{font-weight:700;letter-spacing:-.02em;line-height:1.02}
 .s-cta .mini-bot svg{width:90px;height:108px}
 
 /* Ayuda al cargar (desaparece sola) */
-#hint{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;font:500 15px Geologica,sans-serif;padding:12px 20px;border-radius:12px;z-index:20;transition:opacity .6s;pointer-events:none}
-#hint.hide{opacity:0}
 #paused{position:fixed;top:20px;right:20px;background:var(--ink);color:#fff;font:600 15px Geologica,sans-serif;padding:8px 14px;border-radius:10px;z-index:20;display:none}
 body.paused #paused{display:block}
 
@@ -540,7 +538,6 @@ body.paused #paused{display:block}
   </div>
 </div>
 
-<div id="hint">F: pantalla completa · ← →: cambiar escena · Espacio: pausa</div>
 <div id="paused">En pausa</div>
 
 <script>
@@ -690,7 +687,6 @@ body.paused #paused{display:block}
   function toggleFs() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
   addEventListener('dblclick', toggleFs);
   let ct; addEventListener('mousemove', () => { document.body.classList.add('cursor'); clearTimeout(ct); ct = setTimeout(() => document.body.classList.remove('cursor'), 2000); });
-  setTimeout(() => document.getElementById('hint').classList.add('hide'), 6000);
 
   // Evita que la pantalla se apague (si el navegador lo permite)
   async function wake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }

@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MediBot · Loop del stand</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='10' width='52' height='38' rx='12' fill='%23ffd600' stroke='%230f1f26' stroke-width='4'/%3E%3Crect x='14' y='18' width='36' height='22' rx='8' fill='%230f1f26'/%3E%3Ccircle cx='25' cy='29' r='4' fill='%2313b9a8'/%3E%3Ccircle cx='39' cy='29' r='4' fill='%2313b9a8'/%3E%3C/svg%3E">
+<style>
+@font-face{font-family:Geologica;src:url(assets/fonts/geologica-latin-400-normal.woff2) format("woff2");font-weight:400}
+@font-face{font-family:Geologica;src:url(assets/fonts/geologica-latin-500-normal.woff2) format("woff2");font-weight:500}
+@font-face{font-family:Geologica;src:url(assets/fonts/geologica-latin-600-normal.woff2) format("woff2");font-weight:600}
+@font-face{font-family:Geologica;src:url(assets/fonts/geologica-latin-700-normal.woff2) format("woff2");font-weight:700}
+@font-face{font-family:"Archivo Black";src:url(assets/fonts/archivo-black-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:Caveat;src:url(assets/fonts/caveat-latin-700-normal.woff2) format("woff2");font-weight:700}
+
+:root{
+  --ink:#0f1f26; --teal:#13b9a8; --teal-d:#0e8f82; --yellow:#ffd600; --yellow-l:#fff6b8;
+  --cream:#eceee9; --mist:#e0efea; --ring:#d5dcd8; --pink:#ff9fb2; --muted:#5b6b70; --panel:#f5f7f6;
+  --e:cubic-bezier(.2,.75,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--cream);color:var(--ink);font-family:Geologica,system-ui,sans-serif;cursor:none}
+body.cursor{cursor:default}
+
+/* Escenario fijo 1920x1080 escalado a la pantalla */
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center;overflow:hidden;background:var(--cream)}
+.scene{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .7s var(--e),visibility 0s .7s}
+.scene.on,.scene.leaving{visibility:visible}
+.scene.on{opacity:1;transition:opacity .7s var(--e)}
+.scene.leaving{opacity:0}
+
+/* Animaciones de entrada: solo corren en la escena activa */
+.in{opacity:0}
+.on .in,.leaving .in{animation:var(--a,up) .9s var(--e) var(--d,0s) both}
+@keyframes up{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes down{from{opacity:0;transform:translateY(-40px)}to{opacity:1;transform:none}}
+@keyframes left{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+@keyframes right{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+h1,h2{font-weight:700;letter-spacing:-.02em;line-height:1.02}
+.dot{color:var(--teal)}
+.hand{font-family:Caveat,cursive;font-weight:700}
+.kicker{font-size:30px;font-weight:600;color:var(--teal-d);letter-spacing:.02em;text-transform:uppercase}
+.dark .kicker{color:var(--teal)}
+
+/* Logo */
+.logo{display:flex;align-items:center;gap:14px;font-weight:700;font-size:34px}
+.logo .tag{font-size:16px;font-weight:600;color:var(--teal-d);border:2.5px solid var(--ink);border-radius:999px;padding:2px 12px;transform:rotate(-4deg);background:#fff}
+.logo svg{width:52px;height:52px}
+#brand{position:absolute;left:64px;top:52px;z-index:5;transition:opacity .6s}
+
+/* Robot */
+.bot{overflow:visible}
+.bot .b-body{animation:float 3.2s ease-in-out infinite}
+.bot .b-wave{transform-origin:132px 168px;animation:wave 1.6s ease-in-out infinite}
+.bot .b-ant{transform-origin:100px 46px;animation:ant 2.4s ease-in-out infinite}
+.bot .b-blink{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+.bot .b-shadow{transform-box:fill-box;transform-origin:center;animation:shadow 3.2s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+@keyframes shadow{50%{transform:scaleX(.85);opacity:.12}}
+@keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}
+@keyframes ant{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+/* Barra de progreso */
+#progress{position:absolute;left:64px;right:64px;bottom:28px;display:flex;gap:8px;z-index:6}
+#progress i{flex:1;height:6px;border-radius:9px;background:rgba(15,31,38,.12);overflow:hidden;position:relative}
+#progress i b{position:absolute;inset:0;width:0;background:var(--teal);border-radius:9px}
+#progress i.done b{width:100%}
+body.is-dark #progress i{background:rgba(255,255,255,.14)}
+
+/* QR fijo en esquina */
+#cornerqr{position:absolute;right:56px;top:32px;z-index:6;display:flex;align-items:center;gap:18px;background:#fff;border:3px solid var(--ink);border-radius:24px;padding:14px 14px 14px 24px;box-shadow:6px 6px 0 var(--ink);transition:opacity .6s,transform .6s var(--e)}
+#cornerqr img{width:112px;height:112px;display:block}
+#cornerqr .t{font-size:24px;font-weight:700;line-height:1.15}
+#cornerqr .t small{display:block;font-size:17px;font-weight:500;color:var(--muted);margin-top:4px}
+#cornerqr.hide{opacity:0;transform:translateY(-30px)}
+
+/* ---------- 1. Intro ---------- */
+.s-intro{display:grid;grid-template-columns:1.25fr .75fr;align-items:center;padding:90px 120px 40px}
+.s-intro h1{font-size:124px}
+.s-intro h1 .light{font-weight:400;color:#3b4b50}
+.s-intro p{font-size:38px;line-height:1.35;margin-top:36px;max-width:1000px;color:#2b3b40}
+.chips{display:flex;gap:16px;margin-top:48px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:12px;background:#fff;border:2px solid var(--ring);border-radius:999px;padding:14px 26px;font-size:28px;font-weight:600}
+.chip svg{width:28px;height:28px;stroke:var(--teal);stroke-width:3;fill:none}
+.intro-bot{position:relative;display:flex;justify-content:center}
+.intro-bot .bot{width:520px;height:624px}
+.bubble{position:absolute;top:-20px;left:-60px;background:#fff;border:4px solid var(--ink);border-radius:36px;padding:14px 30px;font-size:52px;box-shadow:6px 6px 0 var(--ink)}
+.bubble:after{content:"";position:absolute;right:60px;bottom:-26px;width:36px;height:36px;background:#fff;border-right:4px solid var(--ink);border-bottom:4px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+
+/* ---------- 2. Problema ---------- */
+.dark{background:var(--ink);color:#fff}
+.s-problem{display:flex;flex-direction:column;justify-content:center;padding:0 160px}
+.s-problem h2{font-size:118px;max-width:1500px}
+.s-problem ul{list-style:none;margin-top:64px;display:grid;gap:26px}
+.s-problem li{font-size:46px;display:flex;align-items:center;gap:26px;color:#cfdad8}
+.s-problem li:before{content:"";width:22px;height:22px;border-radius:50%;background:var(--pink);flex:none}
+.s-problem .answer{margin-top:72px;font-size:74px;font-weight:700;color:var(--yellow)}
+.ring-phone{position:absolute;right:120px;top:640px;width:250px;height:250px;stroke:var(--teal);fill:none;stroke-width:1.6}
+.on .ring-phone{animation:ring 1.2s ease-in-out infinite}
+@keyframes ring{0%,40%,100%{transform:rotate(0)}5%,15%,25%{transform:rotate(-12deg)}10%,20%,30%{transform:rotate(12deg)}}
+.ring-waves{position:absolute;right:70px;top:590px;width:350px;height:350px;border-radius:50%;border:3px solid rgba(19,185,168,.5)}
+.on .ring-waves{animation:waves 1.2s ease-out infinite}
+@keyframes waves{from{transform:scale(.6);opacity:1}to{transform:scale(1.2);opacity:0}}
+
+/* ---------- 3. Chat ---------- */
+.s-chat{display:grid;grid-template-columns:auto 1fr;gap:130px;align-items:center;padding:0 140px 0 220px}
+.phone{width:500px;height:960px;border-radius:64px;background:var(--ink);padding:16px;box-shadow:0 40px 80px -30px rgba(15,31,38,.5)}
+.screen{width:100%;height:100%;border-radius:50px;overflow:hidden;background:#dfeee9;display:flex;flex-direction:column;position:relative}
+.tg-head{background:#fff;display:flex;align-items:center;gap:16px;padding:46px 24px 18px;border-bottom:1px solid var(--ring)}
+.tg-head .av{width:58px;height:58px;border-radius:50%;background:var(--yellow);border:3px solid var(--ink);display:grid;place-items:center;overflow:hidden}
+.tg-head .av svg{width:56px;height:68px;margin-top:22px}
+.tg-head b{font-size:24px;display:block}
+.tg-head span{font-size:17px;color:var(--teal-d)}
+.msgs{flex:1;padding:22px 18px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;overflow:hidden;
+  background-image:radial-gradient(rgba(15,31,38,.06) 2px,transparent 2px);background-size:26px 26px}
+.msg{max-width:84%;font-size:23px;line-height:1.35;padding:14px 18px;border-radius:22px;animation:msg .45s var(--e) both}
+.msg.u{align-self:flex-end;background:#c9f1e9;border-bottom-right-radius:6px}
+.msg.b{align-self:flex-start;background:#fff;border-bottom-left-radius:6px}
+.msg small{display:block;text-align:right;font-size:14px;color:var(--muted);margin-top:4px}
+@keyframes msg{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:none}}
+.kb{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-self:flex-start;width:84%;animation:msg .45s var(--e) both}
+.kb span{background:rgba(255,255,255,.75);border-radius:12px;text-align:center;font-size:22px;font-weight:600;padding:12px 0;color:var(--teal-d);transition:.3s}
+.kb span.tap{background:var(--teal);color:#fff;transform:scale(.94)}
+.typing{align-self:flex-start;background:#fff;border-radius:22px;padding:18px 22px;display:flex;gap:7px}
+.typing i{width:10px;height:10px;border-radius:50%;background:#9aa8ac;animation:tp 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes tp{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-6px);opacity:1}}
+.tg-input{background:#fff;padding:16px 20px 30px;display:flex;align-items:center;gap:14px;font-size:21px;color:#9aa8ac}
+.tg-input div{flex:1;background:var(--panel);border-radius:999px;padding:14px 20px}
+.tg-input svg{width:34px;height:34px;stroke:var(--teal);fill:none;stroke-width:2.2}
+.s-chat h2{font-size:88px;margin:20px 0 50px}
+.steps{display:grid;gap:22px}
+.step{display:flex;gap:28px;align-items:flex-start;background:#fff;border:2px solid var(--ring);border-radius:28px;padding:28px 34px;opacity:.38;transform:scale(.97);transform-origin:left;transition:all .6s var(--e)}
+.step.act{opacity:1;transform:none;border-color:var(--ink);box-shadow:8px 8px 0 var(--ink)}
+.step .n{width:64px;height:64px;border-radius:50%;background:var(--yellow);border:3px solid var(--ink);display:grid;place-items:center;font-family:"Archivo Black";font-size:30px;flex:none}
+.step b{font-size:40px;display:block}
+.step span{font-size:28px;color:var(--muted);display:block;margin-top:6px;line-height:1.3}
+
+/* ---------- 4. Panel ---------- */
+.s-panel{padding:64px 110px 0}
+.s-panel .cap{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:34px}
+.s-panel .cap h2{font-size:68px;white-space:nowrap}
+.s-panel .cap p{font-size:28px;color:var(--muted);max-width:560px;text-align:right;line-height:1.3}
+.win{height:790px;background:var(--panel);border-radius:28px;border:2px solid var(--ring);overflow:hidden;display:grid;grid-template-columns:270px 1fr;box-shadow:0 40px 90px -40px rgba(15,31,38,.45);position:relative}
+.side{background:#fff;border-right:1px solid var(--ring);padding:26px 16px;display:flex;flex-direction:column;gap:6px}
+.side .logo{font-size:22px;gap:10px;margin:0 6px 26px}
+.side .logo svg{width:40px;height:40px}
+.side .logo .tag{font-size:11px;padding:1px 8px;border-width:2px}
+.side .sub{display:block;font-size:13px;color:var(--muted);font-weight:500}
+.nav{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:14px;font-size:18px;font-weight:600;color:#33454b}
+.nav svg{flex:none;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;opacity:.75}
+.nav.act{background:var(--ink);color:#fff}
+.nav em{margin-left:auto;font-style:normal;font-size:13px;background:var(--teal);color:#fff;border-radius:999px;padding:2px 9px;transition:transform .4s}
+.nav em.bump{animation:bump .6s}
+@keyframes bump{40%{transform:scale(1.5)}}
+.main{padding:30px 40px;display:grid;grid-template-rows:auto auto 1fr;gap:22px;min-height:0}
+.hello{display:flex;justify-content:space-between;align-items:center}
+.hello h3{font-size:32px}
+.hello span{font-size:17px;color:var(--muted);display:block;margin-top:4px}
+.btn{background:var(--teal);color:var(--ink);font-weight:700;font-size:17px;border-radius:999px;padding:13px 24px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.kpi{background:#fff;border:1px solid var(--ring);border-radius:18px;padding:18px 22px}
+.kpi b{font-size:44px;display:block;line-height:1}
+.kpi span{font-size:16px;color:var(--muted);display:block;margin-top:6px}
+.kpi span em{font-style:normal;color:var(--teal-d);font-weight:600}
+.cols{display:grid;grid-template-columns:1.55fr 1fr;gap:18px;min-height:0}
+.card{background:#fff;border:1px solid var(--ring);border-radius:18px;padding:18px 22px;min-height:0;overflow:hidden}
+.card h4{font-size:19px;display:flex;justify-content:space-between;margin-bottom:12px}
+.card h4 a{color:var(--teal-d);font-size:15px}
+.row{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:14px;padding:9px 10px;border-radius:12px;font-size:16px;transition:background 1.2s}
+.row b{font-weight:600}
+.row .who{display:flex;gap:10px;align-items:baseline;white-space:nowrap;overflow:hidden}
+.row .who span{color:var(--muted);font-size:14px}
+.row.new{background:#d4f3ed;animation:rowin .7s var(--e) both}
+@keyframes rowin{from{opacity:0;transform:translateX(-30px);max-height:0}to{opacity:1;transform:none;max-height:60px}}
+.st{font-size:13px;font-weight:600;padding:4px 11px;border-radius:999px;white-space:nowrap;transition:all .5s}
+.st.at{background:#eef1f0;color:#5b6b70}.st.co{background:#d4f3ed;color:var(--teal-d)}.st.re{background:#fff3b0;color:#7a6400}
+.tgb{font-size:12px;font-weight:700;color:#2a8bd0;margin-left:4px}
+.att{display:grid;gap:10px}
+.att div{border:1px solid var(--ring);border-radius:12px;padding:10px 14px;font-size:15px;line-height:1.35}
+.att b{display:block;font-size:15px}
+.att span{color:var(--muted)}
+.slots{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.slots span{white-space:nowrap;overflow:hidden;border:1.5px dashed var(--teal);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;transition:all .5s}
+.slots span.gone{opacity:0;transform:scale(.6);width:0;padding:8px 0;margin-left:-10px;border-width:0}
+.toast{position:absolute;right:34px;top:26px;background:var(--ink);color:#fff;border-radius:18px;padding:16px 22px;display:flex;gap:14px;align-items:center;font-size:18px;box-shadow:0 20px 40px -10px rgba(0,0,0,.35);opacity:0;transform:translateY(-20px);transition:all .5s var(--e)}
+.toast.show{opacity:1;transform:none}
+.toast i{width:40px;height:40px;border-radius:12px;background:var(--teal);display:grid;place-items:center}
+.toast i svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2.4}
+.toast small{display:block;color:#9fb4b7;font-size:15px}
+
+/* ---------- 5. Recordatorio ---------- */
+.s-remind{display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:0 140px;gap:100px}
+.s-remind h2{font-size:104px;margin:22px 0 34px}
+.s-remind p{font-size:36px;color:var(--muted);line-height:1.35}
+.life{display:flex;align-items:center;gap:16px;margin-top:60px}
+.life span{font-size:30px;font-weight:700;padding:14px 26px;border-radius:999px;border:3px solid var(--ring);color:#9aa8ac;background:#fff;transition:all .5s var(--e)}
+.life span.on1{border-color:var(--ink);color:var(--ink);background:var(--yellow)}
+.life span.on2{border-color:var(--ink);color:var(--ink);background:var(--teal)}
+.life svg{width:34px;height:34px;stroke:#9aa8ac;fill:none;stroke-width:2.5}
+.notif-wrap{position:relative;height:720px}
+.notif{position:absolute;left:0;right:0;top:120px;background:#fff;border:4px solid var(--ink);border-radius:40px;padding:38px 42px;box-shadow:12px 12px 0 var(--ink)}
+.on .notif{animation:drop 1s var(--e) .6s both}
+@keyframes drop{from{opacity:0;transform:translateY(-120px) rotate(-3deg)}to{opacity:1;transform:none}}
+.notif .top{display:flex;align-items:center;gap:18px;font-size:24px;color:var(--muted)}
+.notif .top .av{width:62px;height:62px;border-radius:18px;background:var(--yellow);border:3px solid var(--ink);display:grid;place-items:center;overflow:hidden}
+.notif .top .av svg{width:60px;height:72px;margin-top:22px}
+.notif .top b{color:var(--ink);font-size:28px}
+.notif .txt{font-size:36px;line-height:1.35;margin:26px 0 30px}
+.notif .acts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.notif .acts span{text-align:center;font-size:30px;font-weight:700;padding:20px;border-radius:20px;background:var(--mist);color:var(--teal-d);transition:all .3s}
+.notif .acts span.tap{background:var(--teal);color:#fff;transform:scale(.95)}
+.ding{position:absolute;top:0;right:30px;font-size:96px;color:var(--teal-d);transform:rotate(8deg)}
+.on .ding{animation:pop .7s var(--e) .4s both}
+.check-ok{position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:36px;font-weight:700;display:flex;gap:14px;align-items:center;opacity:0;transition:all .5s;white-space:nowrap}
+.check-ok.show{opacity:1}
+.check-ok i{width:54px;height:54px;border-radius:50%;background:var(--teal);display:grid;place-items:center}
+.check-ok svg{width:30px;height:30px;stroke:#fff;stroke-width:3.5;fill:none}
+
+/* ---------- 6. Funciones ---------- */
+.s-feat{padding:150px 140px 0}
+.s-feat h2{font-size:80px;margin:16px 0 50px;white-space:nowrap}
+.grid6{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.feat{background:#fff;border:3px solid var(--ink);border-radius:32px;padding:30px 36px;box-shadow:8px 8px 0 var(--ink);--a:pop}
+.feat .ic{width:68px;height:68px;border-radius:20px;background:var(--mist);display:grid;place-items:center;margin-bottom:18px}
+.feat .ic svg{width:40px;height:40px;stroke:var(--teal-d);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.feat b{font-size:36px;display:block;white-space:nowrap}
+.feat .hand{font-size:38px;color:var(--teal-d);display:block;margin-top:6px}
+
+/* ---------- 7. Objetivos ---------- */
+.s-goals{display:flex;flex-direction:column;justify-content:center;padding:0 140px}
+.s-goals h2{font-size:96px;margin:18px 0 90px;max-width:1400px}
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
+.num{border-top:4px solid var(--teal);padding-top:30px}
+.num b{font-family:"Archivo Black";font-size:128px;line-height:1;color:var(--yellow);display:block;white-space:nowrap}
+.num b i{font-style:normal}
+.num span{font-size:34px;color:#cfdad8;display:block;margin-top:18px;line-height:1.25}
+.s-goals .foot{margin-top:90px;font-size:32px;color:#9fb4b7;max-width:1300px;line-height:1.4}
+
+/* ---------- 8. Planes ---------- */
+.s-plans{padding:150px 140px 0;text-align:center}
+.s-plans h2{font-size:96px;margin:18px 0 20px}
+.s-plans .sub{font-size:36px;color:var(--muted)}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin:60px auto 0;max-width:1500px;text-align:left}
+.plan{background:#fff;border:3px solid var(--ring);border-radius:40px;padding:50px 56px;position:relative}
+.plan.top{border-color:var(--ink);box-shadow:12px 12px 0 var(--ink)}
+.plan .badge{position:absolute;top:-28px;right:50px;background:var(--yellow);border:3px solid var(--ink);border-radius:999px;padding:8px 26px;font-size:26px;font-weight:700}
+.plan h3{font-size:50px}
+.plan .for{font-size:28px;color:var(--muted);margin-top:8px}
+.price{margin:30px 0 8px;display:flex;align-items:baseline;gap:14px}
+.price b{font-family:"Archivo Black";font-size:100px;line-height:1}
+.price span{font-size:32px;color:var(--muted)}
+.impl{font-size:26px;color:var(--muted)}
+.plan ul{list-style:none;margin-top:30px;display:grid;gap:14px}
+.plan li{font-size:29px;display:flex;gap:14px;align-items:center}
+.plan li:before{content:"✓";color:var(--teal-d);font-weight:700}
+
+/* ---------- 9. Equipo ---------- */
+.s-team{padding:160px 120px 0;text-align:center}
+.s-team h2{font-size:104px;margin:18px 0 90px}
+.team{display:grid;grid-template-columns:repeat(5,1fr);gap:40px}
+.mem{--a:pop}
+.mem img{width:270px;height:270px;border-radius:50%;object-fit:cover;border:5px solid var(--ink);box-shadow:8px 8px 0 var(--teal);background:var(--mist)}
+.mem b{display:block;font-size:32px;margin-top:30px;line-height:1.2}
+.mem span{display:block;font-size:24px;color:var(--muted);margin-top:8px}
+.s-team .uni{margin-top:90px;font-size:32px;color:var(--muted)}
+
+/* ---------- 10. Cierre ---------- */
+.s-cta{background:var(--yellow);display:grid;grid-template-columns:1fr auto;align-items:center;padding:0 140px;gap:80px}
+.s-cta h2{font-size:108px}
+.s-cta p{font-size:40px;margin-top:36px;line-height:1.35;max-width:950px}
+.qrs{display:flex;gap:40px}
+.qr{background:#fff;border:4px solid var(--ink);border-radius:40px;padding:34px;text-align:center;box-shadow:12px 12px 0 var(--ink);--a:pop}
+.qr img{width:300px;height:300px;display:block}
+.qr b{display:block;font-size:36px;margin-top:24px}
+.qr span{display:block;font-size:22px;color:var(--muted);margin-top:6px}
+.s-cta .mini-bot{margin-top:44px;display:flex;align-items:center;gap:22px;font-size:30px;font-weight:600}
+.s-cta .mini-bot svg{width:90px;height:108px}
+
+/* Ayuda al cargar (desaparece sola) */
+#hint{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;font:500 15px Geologica,sans-serif;padding:12px 20px;border-radius:12px;z-index:20;transition:opacity .6s;pointer-events:none}
+#hint.hide{opacity:0}
+#paused{position:fixed;top:20px;right:20px;background:var(--ink);color:#fff;font:600 15px Geologica,sans-serif;padding:8px 14px;border-radius:10px;z-index:20;display:none}
+body.paused #paused{display:block}
+
+@media (prefers-reduced-motion:reduce){.bot *{animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- Robot de MediBot (del sitio oficial) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="bot" viewBox="0 0 200 240">
+ <ellipse class="b-shadow" cx="100" cy="232" rx="46" ry="6" fill="#0f1f26" opacity=".18"/>
+ <g class="b-body">
+  <path d="M86 196v22M114 196v22" stroke="#0f1f26" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="82" cy="222" rx="13" ry="8" fill="#ffd600" stroke="#0f1f26" stroke-width="5"/>
+  <ellipse cx="118" cy="222" rx="13" ry="8" fill="#ffd600" stroke="#0f1f26" stroke-width="5"/>
+  <path d="M68 168q-26 6-34 26" fill="none" stroke="#0f1f26" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="33" cy="196" r="8" fill="#ffd600" stroke="#0f1f26" stroke-width="5"/>
+  <rect x="64" y="136" width="72" height="66" rx="24" fill="#13b9a8" stroke="#0f1f26" stroke-width="5"/>
+  <path d="M82 178q18 12 36 0" fill="none" stroke="#0f1f26" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+  <rect x="80" y="156" width="40" height="22" rx="8" fill="#fff" stroke="#0f1f26" stroke-width="4"/>
+  <path d="M88 167l7 7 13-14" fill="none" stroke="#13b9a8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g class="b-wave">
+   <path d="M132 168q28-2 40-24" fill="none" stroke="#0f1f26" stroke-width="5" stroke-linecap="round"/>
+   <circle cx="173" cy="141" r="9" fill="#ffd600" stroke="#0f1f26" stroke-width="5"/>
+  </g>
+  <g class="b-ant"><path d="M100 46V20" stroke="#0f1f26" stroke-width="5" stroke-linecap="round"/><circle cx="100" cy="14" r="9" fill="#ffd600" stroke="#0f1f26" stroke-width="5"/></g>
+  <path d="M60 128l-4 22 30-20z" fill="#ffd600" stroke="#0f1f26" stroke-width="5" stroke-linejoin="round"/>
+  <rect x="22" y="40" width="156" height="98" rx="28" fill="#ffd600" stroke="#0f1f26" stroke-width="6"/>
+  <path d="M38 58q0-8 8-10" stroke="#fff6b8" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <rect x="42" y="58" width="116" height="62" rx="22" fill="#0f1f26"/>
+  <g class="b-blink"><ellipse cx="78" cy="86" rx="12" ry="14" fill="#13b9a8"/><circle cx="82" cy="80" r="3.5" fill="#fff"/></g>
+  <g class="b-blink"><ellipse cx="122" cy="86" rx="12" ry="14" fill="#13b9a8"/><circle cx="126" cy="80" r="3.5" fill="#fff"/></g>
+  <path d="M90 105q10 8 20 0" fill="none" stroke="#13b9a8" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="58" cy="104" rx="8" ry="5" fill="#ff9fb2" opacity=".85"/><ellipse cx="142" cy="104" rx="8" ry="5" fill="#ff9fb2" opacity=".85"/>
+ </g>
+</symbol>
+<symbol id="logo" viewBox="0 0 64 64"><rect x="6" y="10" width="52" height="38" rx="12" fill="#ffd600" stroke="#0f1f26" stroke-width="4"/><rect x="14" y="18" width="36" height="22" rx="8" fill="#0f1f26"/><circle cx="25" cy="29" r="4" fill="#13b9a8"/><circle cx="39" cy="29" r="4" fill="#13b9a8"/><path d="M32 10V4" stroke="#0f1f26" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="4" r="3.5" fill="#ffd600" stroke="#0f1f26" stroke-width="3"/></symbol>
+</defs></svg>
+
+<div id="stage">
+
+  <div id="brand" class="logo"><svg><use href="#logo"/></svg>MediBot <span class="tag">Solutions</span></div>
+
+  <!-- 1. INTRO -->
+  <section class="scene s-intro" data-id="intro" data-dur="9000" data-qr="0">
+    <div>
+      <h1 class="in" style="--d:.2s"><span class="light">Tu consultorio,</span><br>mejor organizado<span class="dot">.</span></h1>
+      <p class="in" style="--d:.7s">MediBot atiende los turnos de tus pacientes por Telegram, las 24 horas, mientras tu equipo se ocupa de las personas.</p>
+      <div class="chips">
+        <span class="chip in" style="--d:1.2s"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Atiende las 24 horas</span>
+        <span class="chip in" style="--d:1.4s"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Recordatorios automáticos</span>
+        <span class="chip in" style="--d:1.6s"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Solo gestión administrativa</span>
+      </div>
+    </div>
+    <div class="intro-bot">
+      <svg class="bot in" style="--a:pop;--d:.3s" viewBox="0 0 200 240"><use href="#bot"/></svg>
+      <div class="bubble hand in" style="--a:pop;--d:1.1s">¡Hola! Soy MediBot.</div>
+    </div>
+  </section>
+
+  <!-- 2. PROBLEMA -->
+  <section class="scene dark s-problem" data-id="problem" data-dur="9000" data-qr="0" data-dark="1">
+    <div class="ring-waves"></div>
+    <svg class="ring-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+    <div class="kicker in">El problema</div>
+    <h2 class="in" style="--d:.2s;margin-top:20px">El teléfono de la recepción no para de sonar<span class="dot">.</span></h2>
+    <ul>
+      <li class="in" style="--a:left;--d:1.4s">Pacientes que no consiguen turno a tiempo.</li>
+      <li class="in" style="--a:left;--d:2.1s">Turnos que quedan vacíos porque nadie avisó.</li>
+      <li class="in" style="--a:left;--d:2.8s">Una recepción que no llega a atender a quien está en la sala.</li>
+    </ul>
+    <div class="answer in" style="--d:4.6s">Para eso está MediBot.</div>
+  </section>
+
+  <!-- 3. CHAT -->
+  <section class="scene s-chat" data-id="chat" data-dur="19000" data-qr="0">
+    <div class="phone in" style="--a:left">
+      <div class="screen">
+        <div class="tg-head">
+          <div class="av"><svg viewBox="0 0 200 240"><use href="#bot"/></svg></div>
+          <div><b>MediBot</b><span>bot · en línea</span></div>
+        </div>
+        <div class="msgs"></div>
+        <div class="tg-input"><div>Mensaje</div><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+      </div>
+    </div>
+    <div>
+      <div class="kicker in" style="--d:.2s">Cómo funciona</div>
+      <h2 class="in" style="--d:.35s">Del primer mensaje al turno confirmado<span class="dot">.</span></h2>
+      <div class="steps">
+        <div class="step" data-step="1"><div class="n">1</div><div><b>El paciente escribe</b><span>Pide, consulta o cancela su turno por Telegram, con sus propias palabras.</span></div></div>
+        <div class="step" data-step="2"><div class="n">2</div><div><b>El bot organiza</b><span>Ofrece solo horarios libres, registra la reserva y le avisa el día anterior.</span></div></div>
+        <div class="step" data-step="3"><div class="n">3</div><div><b>Tu equipo gestiona</b><span>El turno aparece al instante en el panel de la recepción.</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. PANEL -->
+  <section class="scene s-panel" data-id="panel" data-dur="18000" data-qr="0">
+    <div class="cap">
+      <div><div class="kicker in">Panel de recepción</div><h2 class="in" style="--d:.15s;margin-top:14px">Tu agenda. Todo en una pantalla<span class="dot">.</span></h2></div>
+      <p class="in" style="--d:.3s">El turno que acaba de pedir Lucía ya está en la agenda. Nadie tuvo que atender el teléfono.</p>
+    </div>
+    <div class="win in" style="--d:.4s">
+      <aside class="side"></aside>
+      <div class="main">
+        <div class="hello"><div><h3>Buen día, Romina</h3><span>Miércoles · resumen de la jornada</span></div><div class="btn">+ Nuevo turno</div></div>
+        <div class="kpis">
+          <div class="kpi"><b data-k="hoy">12</b><span>turnos hoy · <em data-k="tg">10</em> por Telegram</span></div>
+          <div class="kpi"><b data-k="llegar">6</b><span>por llegar</span></div>
+          <div class="kpi"><b>6</b><span>atendidos</span></div>
+          <div class="kpi"><b>0</b><span>ausentes</span></div>
+        </div>
+        <div class="cols">
+          <div class="card"><h4>Agenda de hoy <a>Ver agenda</a></h4><div class="agenda"></div></div>
+          <div class="card">
+            <h4>Necesita atención</h4>
+            <div class="att">
+              <div><b>Daniela Costilla · hace 26 min</b><span>"Es IOSEP, ¿cubre el 100%?" · derivado a recepción</span></div>
+              <div><b>Martín Rodríguez</b><span>Hoy 11:40 · sin confirmar</span></div>
+            </div>
+            <h4 style="margin-top:18px">Huecos libres hoy</h4>
+            <div class="slots"><span>11:00 · Dra. Rodríguez</span><span data-slot="1130">11:30 · Dra. Rodríguez</span><span>16:30 · Lic. Pérez</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="toast"><i><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></i><div><b>Nuevo turno por Telegram</b><small>Lucía Paz · 11:30 · Dra. Ana Rodríguez</small></div></div>
+    </div>
+  </section>
+
+  <!-- 5. RECORDATORIO -->
+  <section class="scene s-remind" data-id="remind" data-dur="12000" data-qr="1">
+    <div>
+      <div class="kicker in">Recordatorios automáticos</div>
+      <h2 class="in" style="--d:.15s">Menos sillas vacías<span class="dot">.</span></h2>
+      <p class="in" style="--d:.35s">Un día antes, MediBot le recuerda el turno al paciente. Confirma o cancela con un toque, y si se libera un horario, se le ofrece a la lista de espera.</p>
+      <div class="life in" style="--d:.6s">
+        <span data-l="1">Reservado</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <span data-l="2">Confirmado</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <span data-l="3">Atendido</span>
+      </div>
+    </div>
+    <div class="notif-wrap">
+      <div class="ding hand">¡DING!</div>
+      <div class="notif">
+        <div class="top"><div class="av"><svg viewBox="0 0 200 240"><use href="#bot"/></svg></div><div><b>MediBot</b><br>Telegram · ahora</div></div>
+        <div class="txt">Hola Lucía, te recuerdo tu turno de <b>mañana a las 16:00</b> con la Dra. Gómez. ¿Venís?</div>
+        <div class="acts"><span data-a="ok">Confirmo</span><span>Cancelar</span></div>
+      </div>
+      <div class="check-ok"><i><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>Turno confirmado</div>
+    </div>
+  </section>
+
+  <!-- 6. FUNCIONES -->
+  <section class="scene s-feat" data-id="feat" data-dur="10000" data-qr="1">
+    <div class="kicker in">Qué incluye</div>
+    <h2 class="in" style="--d:.15s">Lo que MediBot hace por tu consultorio<span class="dot">.</span></h2>
+    <div class="grid6">
+      <div class="feat in" style="--d:.5s"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><b>Atención 24/7</b><span class="hand">no duermo, agendo</span></div>
+      <div class="feat in" style="--d:.7s"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></div><b>Recordatorios automáticos</b><span class="hand">¡DING! te aviso un día antes</span></div>
+      <div class="feat in" style="--d:.9s"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4"/></svg></div><b>Agenda sin superposiciones</b><span class="hand">lunes: 0 huecos libres</span></div>
+      <div class="feat in" style="--d:1.1s"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 2h12M6 22h12M7 2v4l5 6-5 6v4M17 2v4l-5 6 5 6v4"/></svg></div><b>Lista de espera</b><span class="hand">se libera y te aviso</span></div>
+      <div class="feat in" style="--d:1.3s"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M8 17v-5M13 17V8M18 17v-9"/></svg></div><b>Reportes de ausentismo</b><span class="hand">404: silla vacía no encontrada</span></div>
+      <div class="feat in" style="--d:1.5s"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 11l2 2 4-4"/></svg></div><b>Derivación a recepción</b><span class="hand">te derivo con una persona</span></div>
+    </div>
+  </section>
+
+  <!-- 7. OBJETIVOS -->
+  <section class="scene dark s-goals" data-id="goals" data-dur="9000" data-qr="0" data-dark="1">
+    <div class="kicker in">Objetivos de diseño</div>
+    <h2 class="in" style="--d:.15s">Rápido, siempre disponible y sin turnos perdidos<span class="dot">.</span></h2>
+    <div class="nums">
+      <div class="num in" style="--d:.5s"><b>24/7</b><span>atención por Telegram</span></div>
+      <div class="num in" style="--d:.7s"><b>&lt;<i data-count="5">5</i>s</b><span>respuesta del bot</span></div>
+      <div class="num in" style="--d:.9s"><b data-count="100">100</b><span>conversaciones simultáneas</span></div>
+      <div class="num in" style="--d:1.1s"><b>-<i data-count="30">30</i>%</b><span>ausentismo, meta del primer año</span></div>
+    </div>
+    <p class="foot in" style="--d:1.6s">Bot, automatizaciones y panel comparten una única base de datos: nunca dos pacientes en el mismo horario, aunque pidan al mismo tiempo.</p>
+  </section>
+
+  <!-- 8. PLANES -->
+  <section class="scene s-plans" data-id="plans" data-dur="10000" data-qr="1">
+    <div class="kicker in">Planes</div>
+    <h2 class="in" style="--d:.15s">Elegí cómo empezar<span class="dot">.</span></h2>
+    <div class="sub in" style="--d:.3s">Suscripción mensual sin permanencia. Implementación inicial por única vez.</div>
+    <div class="plans">
+      <div class="plan in" style="--a:left;--d:.6s">
+        <h3>Consultorio Individual</h3><div class="for">Para un profesional con su propia agenda.</div>
+        <div class="price"><b>USD 49</b><span>/ mes</span></div><div class="impl">+ USD 90 de implementación</div>
+        <ul><li>Bot de Telegram con IA</li><li>Reservas, confirmaciones y cancelaciones</li><li>Recordatorios y consultas frecuentes</li></ul>
+      </div>
+      <div class="plan top in" style="--a:right;--d:.8s">
+        <div class="badge">El más elegido</div>
+        <h3>Centro Médico</h3><div class="for">Para equipos de 2 a 10 profesionales.</div>
+        <div class="price"><b>USD 129</b><span>/ mes</span></div><div class="impl">+ USD 250 de implementación</div>
+        <ul><li>Todo lo del plan Individual</li><li>Panel administrativo para recepción</li><li>Lista de espera y reportes de ausentismo</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. EQUIPO -->
+  <section class="scene s-team" data-id="team" data-dur="9000" data-qr="1">
+    <div class="kicker in">Quiénes somos</div>
+    <h2 class="in" style="--d:.15s">El equipo<span class="dot">.</span></h2>
+    <div class="team">
+      <div class="mem in" style="--d:.4s"><img src="assets/fotos/carabajal.jpg" alt=""><b>Enrique Agustín<br>Carabajal</b><span>Ingeniería en Sistemas</span></div>
+      <div class="mem in" style="--d:.55s"><img src="assets/fotos/fernandez.jpg" alt=""><b>José Agustín<br>Fernández</b><span>Ingeniería en Sistemas</span></div>
+      <div class="mem in" style="--d:.7s"><img src="assets/fotos/garcia.jpg" alt=""><b>Francisco<br>García Matar</b><span>Ingeniería en Sistemas</span></div>
+      <div class="mem in" style="--d:.85s"><img src="assets/fotos/guaitima.jpg" alt=""><b>Álvaro Mauricio<br>Guaitima</b><span>Ingeniería en Sistemas</span></div>
+      <div class="mem in" style="--d:1s"><img src="assets/fotos/quintero.jpg" alt=""><b>Paulina Rocío<br>Quintero</b><span>Ingeniería en Sistemas</span></div>
+    </div>
+    <div class="uni in" style="--d:1.4s">UTN FRT · Administración de Sistemas de Información · 2026</div>
+  </section>
+
+  <!-- 10. CIERRE -->
+  <section class="scene s-cta" data-id="cta" data-dur="14000" data-qr="0">
+    <div>
+      <h2 class="in">¿Y si el próximo turno lo da MediBot?</h2>
+      <p class="in" style="--d:.4s">Escaneá el código y probá el bot desde tu celular. O acercate y te mostramos el panel en vivo.</p>
+      <div class="mini-bot in" style="--d:1.2s"><svg class="bot" viewBox="0 0 200 240"><use href="#bot"/></svg>medibot.solutions18@gmail.com</div>
+    </div>
+    <div class="qrs">
+      <div class="qr in" style="--d:.7s"><img src="assets/qr-demo.svg" alt=""><b>Probá el bot</b><span>simuladormedibot.netlify.app</span></div>
+      <div class="qr in" style="--d:.9s"><img src="assets/qr-web.svg" alt=""><b>Conocé MediBot</b><span>medibot-solutions-rho.vercel.app</span></div>
+    </div>
+  </section>
+
+  <div id="cornerqr" class="hide"><div class="t">Probá el bot<small>Escaneá con tu celular</small></div><img src="assets/qr-demo.svg" alt=""></div>
+  <div id="progress"></div>
+</div>
+
+<div id="hint">F: pantalla completa · ← →: cambiar escena · Espacio: pausa</div>
+<div id="paused">En pausa</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const scenes = [...document.querySelectorAll('.scene')];
+  const progress = document.getElementById('progress');
+  const corner = document.getElementById('cornerqr');
+  const brand = document.getElementById('brand');
+  let idx = -1, timers = [], paused = false, sceneStart = 0, raf;
+
+  /* ---- Escalado ---- */
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---- Utilidades ---- */
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const $ = (s, el) => el.querySelector(s);
+  function countUp(el, to, ms = 1400, from = 0) {
+    const t0 = performance.now();
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / ms), v = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      el.textContent = v;
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  const ICONS = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    cal: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    clip: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/>',
+    users: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-6"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/>',
+    steth: '<path d="M6 3v6a5 5 0 0 0 10 0V3M11 14v2a5 5 0 0 0 10 0v-3"/><circle cx="21" cy="11" r="2"/>',
+    chart: '<path d="M3 3v18h18M8 17v-5M13 17V8M18 17v-9"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'
+  };
+  const ico = n => `<svg viewBox="0 0 24 24">${ICONS[n]}</svg>`;
+
+  /* ---- Guiones de cada escena ---- */
+  const S = {
+    chat(s) {
+      const box = $('.msgs', s), steps = s.querySelectorAll('.step');
+      box.innerHTML = '';
+      steps.forEach(x => x.classList.remove('act'));
+      const step = n => steps.forEach(x => x.classList.toggle('act', +x.dataset.step === n));
+      const add = (html, cls = 'msg') => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; box.appendChild(d); return d; };
+      const typing = () => add('<i></i><i></i><i></i>', 'typing');
+      later(700, () => step(1));
+      later(1200, () => add('Hola! Necesito un turno con el dentista para hoy<small>10:02</small>', 'msg u'));
+      later(2600, () => { step(2); const t = typing(); later(1500, () => { t.remove();
+        add('¡Hola! Hoy tengo estos horarios libres con la <b>Dra. Ana Rodríguez</b>:<small>10:02</small>', 'msg b');
+        const kb = add('<span>11:00</span><span>11:30</span><span>16:30</span>', 'kb'); kb.dataset.kb = 1;
+      }); });
+      later(6600, () => { const kb = $('[data-kb]', box); kb && kb.children[1].classList.add('tap'); });
+      later(7300, () => add('11:30<small>10:03</small>', 'msg u'));
+      later(8300, () => { const t = typing(); later(1400, () => { t.remove();
+        add('Listo, Lucía. Te espero <b>hoy a las 11:30</b> con la Dra. Rodríguez. Si necesitás cancelar, escribime acá.<small>10:03</small>', 'msg b');
+      }); });
+      later(12200, () => step(3));
+    },
+
+    panel(s) {
+      const side = $('.side', s);
+      side.innerHTML = `<div class="logo"><svg><use href="#logo"/></svg><div>MediBot <span class="tag">Solutions</span><span class="sub">Consultorios Odontológicos Centro</span></div></div>` +
+        [['home','Inicio',1],['cal','Agenda'],['clip','Turnos','4'],['users','Pacientes'],['chat','Conversaciones','2'],['steth','Profesionales'],['chart','Reportes'],['gear','Configuración']]
+          .map(([i,t,b]) => `<div class="nav${b===1?' act':''}">${ico(i)}${t}${typeof b==='string'?`<em data-b="${t}">${b}</em>`:''}</div>`).join('');
+      const rows = [
+        ['08:30','Leandro Martínez','Dra. Ana Rodríguez','at'],['09:00','Belén Torres','Dra. Ana Rodríguez','at'],
+        ['09:40','Abril Ramírez','Dra. Carolina Gómez','at'],['10:20','Florencia López','Dra. Carolina Gómez','at'],
+        ['11:00','Federico Flores','Dra. Carolina Gómez','co'],['11:40','Martín Rodríguez','Dra. Carolina Gómez','re'],
+        ['14:00','Santiago Villalba','Lic. Laura Pérez','re'],['14:50','Ignacio Villalba','Lic. Laura Pérez','co'],
+        ['15:40','Pablo González','Lic. Laura Pérez','re']
+      ];
+      const L = { at: 'Atendido', co: 'Confirmado', re: 'Reservado' };
+      const row = (h, n, d, st, extra = '') => `<div class="row${extra}"><b>${h}</b><div class="who"><b>${n}</b><span>${d}</span></div><span class="st ${st}">${L[st]}</span></div>`;
+      const ag = $('.agenda', s);
+      ag.innerHTML = rows.map(r => row(...r)).join('');
+      $('[data-k=hoy]', s).textContent = 12; $('[data-k=tg]', s).textContent = 10; $('[data-k=llegar]', s).textContent = 6;
+      const slot = $('[data-slot]', s); slot.classList.remove('gone');
+      const toast = $('.toast', s); toast.classList.remove('show');
+
+      later(3200, () => toast.classList.add('show'));
+      later(3700, () => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = row('11:30', 'Lucía Paz <span class="tgb">● Telegram</span>', 'Dra. Ana Rodríguez', 're', ' new');
+        ag.insertBefore(tmp.firstChild, ag.children[5]);
+        slot.classList.add('gone');
+        countUp($('[data-k=hoy]', s), 13, 600, 12); countUp($('[data-k=tg]', s), 11, 600, 10); countUp($('[data-k=llegar]', s), 7, 600, 6);
+        const b = $('[data-b=Turnos]', s); b.textContent = '5'; b.classList.add('bump');
+      });
+      later(8000, () => toast.classList.remove('show'));
+      // El paciente confirma desde el recordatorio
+      later(10500, () => { const st = $('.row.new .st', s); if (st) { st.className = 'st co'; st.textContent = 'Confirmado'; } });
+    },
+
+    remind(s) {
+      const life = s.querySelectorAll('.life span'), ok = $('[data-a=ok]', s), done = $('.check-ok', s);
+      life.forEach(x => x.className = ''); ok.classList.remove('tap'); done.classList.remove('show');
+      later(1000, () => life[0].className = 'on1');
+      later(4600, () => ok.classList.add('tap'));
+      later(5200, () => { done.classList.add('show'); life[1].className = 'on2'; });
+      later(8000, () => life[2].className = 'on2');
+    },
+
+    goals(s) {
+      s.querySelectorAll('[data-count]').forEach((el, i) => later(600 + i * 200, () => countUp(el, +el.dataset.count, 1400)));
+    }
+  };
+
+  /* ---- Barra de progreso ---- */
+  progress.innerHTML = scenes.map(() => '<i><b></b></i>').join('');
+  const bars = [...progress.children];
+  function tickBar() {
+    const s = scenes[idx], b = bars[idx];
+    if (b && !paused) b.firstChild.style.width = Math.min(100, (performance.now() - sceneStart) / +s.dataset.dur * 100) + '%';
+    raf = requestAnimationFrame(tickBar);
+  }
+
+  /* ---- Motor del loop ---- */
+  function go(i) {
+    timers.forEach(clearTimeout); timers = [];
+    const prev = scenes[idx];
+    idx = (i + scenes.length) % scenes.length;
+    const s = scenes[idx];
+    scenes.forEach(x => { if (x !== s && x !== prev) x.classList.remove('on', 'leaving'); });
+    if (prev && prev !== s) { prev.classList.remove('on'); prev.classList.add('leaving'); later(750, () => prev.classList.remove('leaving')); }
+    s.classList.remove('on', 'leaving'); void s.offsetWidth; s.classList.add('on');
+    bars.forEach((b, k) => { b.classList.toggle('done', k < idx); b.firstChild.style.width = k < idx ? '100%' : '0'; });
+    corner.classList.toggle('hide', s.dataset.qr !== '1');
+    brand.style.opacity = ['panel', 'cta', 'chat'].includes(s.dataset.id) ? 0 : 1;
+    brand.style.color = s.dataset.dark ? '#fff' : '';
+    document.body.classList.toggle('is-dark', !!s.dataset.dark);
+    sceneStart = performance.now();
+    S[s.dataset.id] && S[s.dataset.id](s);
+    if (!paused) later(+s.dataset.dur, () => go(idx + 1));
+  }
+
+  /* ---- Controles ---- */
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(idx + 1);
+    else if (e.key === 'ArrowLeft') go(idx - 1);
+    else if (e.key === ' ') { paused = !paused; document.body.classList.toggle('paused', paused); if (!paused) go(idx); e.preventDefault(); }
+    else if (e.key === 'f' || e.key === 'F') toggleFs();
+  });
+  function toggleFs() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
+  addEventListener('dblclick', toggleFs);
+  let ct; addEventListener('mousemove', () => { document.body.classList.add('cursor'); clearTimeout(ct); ct = setTimeout(() => document.body.classList.remove('cursor'), 2000); });
+  setTimeout(() => document.getElementById('hint').classList.add('hide'), 6000);
+
+  // Evita que la pantalla se apague (si el navegador lo permite)
+  async function wake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }
+  wake(); document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && wake());
+
+  const start = () => { go(0); tickBar(); };
+  (document.fonts && document.fonts.ready) ? document.fonts.ready.then(start) : start();
+})();
+</script>
+</body>
+</html>

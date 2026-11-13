@@ -3,6 +3,8 @@
 Presentación animada que se repite sola (unos 2 minutos por vuelta), pensada para un monitor en el stand de la muestra.
 ![Vista previa de las escenas](preview.jpg)
 
+Los dos códigos QR (simulador y landing) quedan **siempre visibles** en la columna derecha, en todas las escenas.
+
 Funciona **sin internet**: las fuentes, las fotos y los códigos QR están en la carpeta `assets/`.
 
 ## Cómo usarla en la notebook
@@ -34,7 +36,7 @@ Funciona **sin internet**: las fuentes, las fotos y los códigos QR están en la
 7. Objetivos de diseño
 8. Planes y precios
 9. El equipo
-10. Cierre con QR al simulador y a la landing
+10. Cierre: "¿Y si el próximo turno lo da MediBot?"
 
 Los datos del panel y de los chats son ficticios, igual que en la demo de la landing.
 
